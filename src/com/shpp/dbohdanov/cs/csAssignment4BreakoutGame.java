@@ -1,5 +1,6 @@
 package com.shpp.dbohdanov.cs;
 
+import acm.graphics.GLabel;
 import acm.graphics.GObject;
 import acm.graphics.GOval;
 import acm.graphics.GRect;
@@ -75,52 +76,175 @@ public class csAssignment4BreakoutGame extends WindowProgram {
      */
     private static final int NTURNS = 3;
 
-    private GRect paddle=new GRect(0, getHeight() - PADDLE_Y_OFFSET, PADDLE_WIDTH, PADDLE_HEIGHT);
+    //----------------------------------------------------------------------------------------
+    // Variables:
+    private int howManyBricksOntTheScreenNow; //current number of bricks on the screen
+    private Color[] brickColor={Color.RED, Color.RED, Color.ORANGE, Color.ORANGE,Color.YELLOW, Color.YELLOW,
+                                    Color.GREEN, Color.GREEN, Color.CYAN,Color.CYAN};
+    private String scoreString="Score: ";
+    private GLabel scoreLabel =new GLabel(scoreString,0,0);
+
+
+    private GRect paddle = new GRect(0, getHeight() - PADDLE_Y_OFFSET, PADDLE_WIDTH, PADDLE_HEIGHT); // The Paddle
+
+    private GOval ball = new GOval(WIDTH / 2, HEIGHT / 2, BALL_RADIUS * 2, BALL_RADIUS * 2); // The Ball
+    private double dy, dx; //ball "speed"
+    private double pause_time = 10; //actually speed of the ball, less=faster
+    //----------------------------------------------------------------------------------------
+
+
+
+    public void run() {
+        drawField();
+
+        addMouseListeners();
+        waitForClick();
+        while (true) {
+            ballMove();
+        }
+    }
+    private void drawField() {
+        drawPaddle();
+        drawBall();
+        drawBricks();
+        showScore();
+    }
+
     private void drawPaddle() {
         paddle.setFilled(true);
         paddle.setFillColor(Color.BLACK);
         add(paddle);
     }
 
-    private GOval ball= new GOval(WIDTH/2,HEIGHT/2, BALL_RADIUS, BALL_RADIUS);
-    private void drawBall(){
+    private void drawBall() {
         ball.setFilled(true);
         ball.setFillColor(Color.BLACK);
         add(ball);
+        dy = 3;
+        RandomGenerator rgen = RandomGenerator.getInstance();
+        dx = rgen.nextDouble(1.0, 3.0);
+        if (rgen.nextBoolean(0.5))
+            dx = -dx;
     }
 
-    public void run() {
-        drawPaddle();
-        drawBall();
-        addMouseListeners();
-        while (true){
-            ballMove();
+
+    private void showScore() {
+
+    }
+    private void changeScore() {
+
+    }
+
+    private void drawBricks() {
+        double x=0, y=BRICK_Y_OFFSET;
+        Color color;
+        for (int i=0; i<NBRICK_ROWS; i++) {
+            color=brickColor[i];
+            for (int j = 0; j < NBRICKS_PER_ROW; j++) {
+                addOneBrick(x, y, color);
+                x = x+ BRICK_WIDTH+BRICK_SEP;
+            }
+
+            y=BRICK_HEIGHT*(i+1)+BRICK_SEP*(i+1)+BRICK_Y_OFFSET;
+            x=0;
         }
     }
 
-    private void ballMove() {
-        double dy=3;
+    private void addOneBrick(double x, double y, Color color) {
+        GRect brick=new GRect(x,y, BRICK_WIDTH, BRICK_HEIGHT);
+        brick.setFilled(true);
+        brick.setFillColor(color);
+        add(brick);
+        howManyBricksOntTheScreenNow++;
+    }
 
-        RandomGenerator rgen = RandomGenerator.getInstance();
-        double dx = rgen.nextDouble(1.0, 3.0);
-        if (rgen.nextBoolean(0.5))
+
+    private void ballMove() {
+        changeDirectionIfHitSomething();
+        ball.move(dx, dy);
+        pause(pause_time);
+    }
+
+    private void changeDirectionIfHitSomething() {
+        if (isBallHitWall())
             dx = -dx;
-        ball.move(dx,dy);
-        pause(500);
+
+        if (isBallHitUp())
+            dy = -dy;
+
+        GObject someobj;
+        //check up-left corner
+        someobj=getElementAt(ball.getX(), ball.getY());
+        if ( someobj!= null) {
+            remove(someobj);
+            howManyBricksOntTheScreenNow--;
+            dy = -dy;
+            return;
+        }
+
+
+        //check up-right corner
+        someobj=getElementAt(ball.getX() + BALL_RADIUS * 2, ball.getY());
+        if (someobj != null) {
+            remove(someobj);
+            howManyBricksOntTheScreenNow--;
+            dy = -dy;
+            return;
+        }
+
+        //check down-left corner
+        someobj = getElementAt(ball.getX(), ball.getY() + BALL_RADIUS * 2);
+        if (someobj != null) {
+            if (getElementAt(ball.getX(), ball.getY() + BALL_RADIUS * 2) == paddle) {
+                dy = -dy;
+                return;
+            } else {
+                remove(getElementAt(ball.getX(), ball.getY() + BALL_RADIUS * 2));
+                howManyBricksOntTheScreenNow--;
+                dy = -dy;
+                return;
+            }
+        }
+
+
+        //check down-right corner
+        someobj = getElementAt(ball.getX() + BALL_RADIUS * 2, ball.getY() + BALL_RADIUS * 2);
+        if (someobj != null) {
+            if (someobj == paddle) {
+                dy = -dy;
+                return;
+            } else {
+                remove(someobj);
+                howManyBricksOntTheScreenNow--;
+                dy = -dy;
+                return;
+            }
+        }
+        changeScore();
+    }
+    
+    private boolean isBallHitUp() {
+        if (ball.getY() <= 0/*||isBallHitPaddle()*/)
+            return true;
+        return false;
+    }
+
+
+    private boolean isBallHitWall() {
+        if (ball.getX() <= 0 || ball.getX() + BALL_RADIUS * 2 >= WIDTH)
+            return true;
+        return false;
     }
 
 
     public void mouseMoved(MouseEvent m) {
-        double x=m.getX()-PADDLE_WIDTH/2;
-        if(x>WIDTH-PADDLE_WIDTH)
-            x=WIDTH-PADDLE_WIDTH;
-        if(x<0)
-            x=0;
+        double x = m.getX() - PADDLE_WIDTH / 2;
+        if (x > WIDTH - PADDLE_WIDTH)
+            x = WIDTH - PADDLE_WIDTH;
+        if (x < 0)
+            x = 0;
         paddle.setLocation(x, getHeight() - PADDLE_Y_OFFSET);
     }
-
-
-
 
 
 }
