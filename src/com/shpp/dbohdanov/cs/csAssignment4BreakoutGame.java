@@ -33,7 +33,7 @@ public class csAssignment4BreakoutGame extends WindowProgram {
     /**
      * Offset of the paddle up from the bottom
      */
-    private static final int PADDLE_Y_OFFSET = 30;
+    private static final int PADDLE_Y_OFFSET = 40;
 
     /**
      * Number of bricks per row
@@ -81,33 +81,76 @@ public class csAssignment4BreakoutGame extends WindowProgram {
     private int howManyBricksOntTheScreenNow; //current number of bricks on the screen
     private Color[] brickColor={Color.RED, Color.RED, Color.ORANGE, Color.ORANGE,Color.YELLOW, Color.YELLOW,
                                     Color.GREEN, Color.GREEN, Color.CYAN,Color.CYAN};
-    private String scoreString="Score: ";
-    private GLabel scoreLabel =new GLabel(scoreString,0,0);
-
 
     private GRect paddle = new GRect(0, getHeight() - PADDLE_Y_OFFSET, PADDLE_WIDTH, PADDLE_HEIGHT); // The Paddle
 
-    private GOval ball = new GOval(WIDTH / 2, HEIGHT / 2, BALL_RADIUS * 2, BALL_RADIUS * 2); // The Ball
+    private GOval ball; // The Ball
     private double dy, dx; //ball "speed"
     private double pause_time = 10; //actually speed of the ball, less=faster
+    private boolean isFailed=false, win=false;
+    private String failString;
+    private GLabel failedLabel, scoreLabel;
+    private int currentTurn;
+
     //----------------------------------------------------------------------------------------
 
 
 
     public void run() {
         drawField();
-
         addMouseListeners();
-        waitForClick();
-        while (true) {
-            ballMove();
+        currentTurn=NTURNS;
+
+        while(currentTurn>0){
+            waitForClick();
+            drawBall();
+            while (!isFailed) {
+                ballMove();
+                if(howManyBricksOntTheScreenNow<=0) {
+                    youWin();
+                    break;
+                }
+            }
+            currentTurn--;
+            if(howManyBricksOntTheScreenNow<=0) {
+               youWin();
+                break;
+            }
+            if(isFailed)
+                prepeareForNextTurn();
         }
+        if(!win)
+            youLose();
+
     }
+
+    private void youWin() {
+        removeAll();
+        GLabel youWin = new GLabel("YOU WIN! :)",getWidth()/2, getHeight()/2);
+        youWin.setFont("Arial-100");
+        add(youWin);
+    }
+
+    private void youLose() {
+        removeAll();
+        GLabel youLose = new GLabel("Looooose",getWidth()/2, getHeight()/2);
+        youLose.setFont("Arial-40");
+        add(youLose);
+    }
+
+    private void prepeareForNextTurn() {
+        isFailed=false;
+       // showTurnsLeft();
+
+        waitForClick();
+        remove(failedLabel);
+    }
+
     private void drawField() {
         drawPaddle();
-        drawBall();
         drawBricks();
         showScore();
+        //showTurnsLeft();
     }
 
     private void drawPaddle() {
@@ -117,6 +160,7 @@ public class csAssignment4BreakoutGame extends WindowProgram {
     }
 
     private void drawBall() {
+        ball=new GOval(WIDTH / 2, HEIGHT / 2, BALL_RADIUS * 2, BALL_RADIUS * 2);
         ball.setFilled(true);
         ball.setFillColor(Color.BLACK);
         add(ball);
@@ -129,10 +173,16 @@ public class csAssignment4BreakoutGame extends WindowProgram {
 
 
     private void showScore() {
-
+        if(scoreLabel!=null)
+            remove(scoreLabel);
+        String score="Score: "+String.valueOf(changeScore());
+        scoreLabel=new GLabel(score, 20, getHeight());
+        scoreLabel.setFont("Arial-20");
+        add(scoreLabel);
     }
-    private void changeScore() {
 
+    private int changeScore() {
+        return NBRICKS_PER_ROW*NBRICK_ROWS-howManyBricksOntTheScreenNow;
     }
 
     private void drawBricks() {
@@ -161,8 +211,25 @@ public class csAssignment4BreakoutGame extends WindowProgram {
 
     private void ballMove() {
         changeDirectionIfHitSomething();
+
         ball.move(dx, dy);
+        if(isFailed) {
+                showFailedLabel();
+            return;
+        }
         pause(pause_time);
+    }
+
+    private void showFailedLabel() {
+        int turnsLeft=currentTurn-1;
+        if (turnsLeft==0){
+            youLose();
+            return;
+        }
+        failString="Ooops \n you have "+turnsLeft+" turns left";
+        failedLabel=new GLabel(failString,getWidth()/3,getHeight()/3);
+        failedLabel.setFont("Arial-20");
+        add(failedLabel);
     }
 
     private void changeDirectionIfHitSomething() {
@@ -172,12 +239,23 @@ public class csAssignment4BreakoutGame extends WindowProgram {
         if (isBallHitUp())
             dy = -dy;
 
+        if (isBallHitDown()) {
+            isFailed=true;
+            return;
+        }
+
         GObject someobj;
         //check up-left corner
         someobj=getElementAt(ball.getX(), ball.getY());
         if ( someobj!= null) {
             remove(someobj);
             howManyBricksOntTheScreenNow--;
+            println(howManyBricksOntTheScreenNow);
+            showScore();
+            if(howManyBricksOntTheScreenNow<=0) {
+                win = true;
+                return;
+            }
             dy = -dy;
             return;
         }
@@ -188,6 +266,11 @@ public class csAssignment4BreakoutGame extends WindowProgram {
         if (someobj != null) {
             remove(someobj);
             howManyBricksOntTheScreenNow--;
+            showScore();
+            if(howManyBricksOntTheScreenNow<=0) {
+                win = true;
+                return;
+            }
             dy = -dy;
             return;
         }
@@ -201,6 +284,11 @@ public class csAssignment4BreakoutGame extends WindowProgram {
             } else {
                 remove(getElementAt(ball.getX(), ball.getY() + BALL_RADIUS * 2));
                 howManyBricksOntTheScreenNow--;
+                showScore();
+                if(howManyBricksOntTheScreenNow<=0) {
+                    win = true;
+                    return;
+                }
                 dy = -dy;
                 return;
             }
@@ -216,24 +304,32 @@ public class csAssignment4BreakoutGame extends WindowProgram {
             } else {
                 remove(someobj);
                 howManyBricksOntTheScreenNow--;
+                showScore();
+                if(howManyBricksOntTheScreenNow<=0) {
+                    win = true;
+                    return;
+                }
                 dy = -dy;
                 return;
             }
         }
         changeScore();
     }
-    
+
+    private boolean isBallHitDown() {
+        boolean ballDown=ball.getY() >= getHeight()-PADDLE_Y_OFFSET;
+        if(ballDown)
+            ball.move(130,130);
+        return ballDown;
+    }
+
     private boolean isBallHitUp() {
-        if (ball.getY() <= 0/*||isBallHitPaddle()*/)
-            return true;
-        return false;
+        return ball.getY() <= 0;
     }
 
 
     private boolean isBallHitWall() {
-        if (ball.getX() <= 0 || ball.getX() + BALL_RADIUS * 2 >= WIDTH)
-            return true;
-        return false;
+        return ball.getX() <= 0 || ball.getX() + BALL_RADIUS * 2 >= WIDTH;
     }
 
 
